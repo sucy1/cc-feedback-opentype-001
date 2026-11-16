@@ -148,6 +148,10 @@ function parseBuffer(buffer, opt={}) {
     const data = new DataView(buffer, 0);
     let numTables;
     let tableEntries = [];
+    // Raw, uncompressed bytes of every table, keyed by table tag.
+    // Kept so that byte-level operations (e.g. subsetting) can reuse the
+    // original table data instead of re-encoding parsed structures.
+    const rawTables = {};
     const signature = parse.getTag(data, 0);
     if (signature === String.fromCharCode(0, 1, 0, 0) || signature === 'true' || signature === 'typ1') {
         font.outlinesFormat = 'truetype';
@@ -327,6 +331,20 @@ function parseBuffer(buffer, opt={}) {
                 break;
         }
     }
+
+    // Capture the uncompressed bytes of every table for byte-level consumers
+    // such as Font.subset(), which rewrites the glyf/loca tables while keeping
+    // the other tables' original encoding intact.
+    for (let i = 0; i < tableEntries.length; i += 1) {
+        const tableEntry = tableEntries[i];
+        const uncompressed = uncompressTable(data, tableEntry);
+        // The DataView may be a view into the whole-file ArrayBuffer, so the
+        // view's own byte offset must be included when copying.
+        const viewStart = uncompressed.data.byteOffset + uncompressed.offset;
+        rawTables[tableEntry.tag] = new Uint8Array(
+            uncompressed.data.buffer, viewStart, tableEntry.length).slice();
+    }
+    font._rawTables = rawTables;
 
     const nameTable = uncompressTable(data, nameTableEntry);
     font.tables.name = _name.parse(nameTable.data, nameTable.offset, ltagTable);

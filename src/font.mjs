@@ -13,6 +13,7 @@ import { VariationManager } from './variation.mjs';
 import HintingTrueType from './hintingtt.mjs';
 import Bidi from './bidi.mjs';
 import { applyPaintType } from './tables/cff.mjs';
+import subsetFont from './subset.mjs';
 
 function createDefaultNamesInfo(options) {
     return {
@@ -602,6 +603,21 @@ Font.prototype.validate = function() {
 Font.prototype.toTables = function() {
     return sfnt.fontToTable(this);
 };
+/**
+ * Create a subset of this font containing only the requested glyphs and
+ * return it as an ArrayBuffer that `opentype.parse()` can read back.
+ *
+ * Only TrueType outlines are supported; CFF/OTF fonts throw an error.
+ *
+ * @param {Object} options
+ * @param {number[]} [options.unicodes] - Unicode codepoints to keep, e.g. [0x41, 0x42, 0x43]
+ * @param {string[]} [options.glyphNames] - glyph names to keep
+ * @return {ArrayBuffer}
+ */
+Font.prototype.subset = function(options) {
+    return subsetFont(this, options);
+};
+
 /**
  * @deprecated Font.toBuffer is deprecated. Use Font.toArrayBuffer instead.
  */
